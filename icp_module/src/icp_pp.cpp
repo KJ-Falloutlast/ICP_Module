@@ -25,7 +25,7 @@
 /** @brief simple icp code
  * @author JamesHu
  * @date \2024.3.30
- * @github 
+ * @github  https://github.com/KJ-Falloutlast/ICP_Module.git
  */
 using ICPFunPtr = Eigen::Matrix4f (*)(pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr, Eigen::Matrix4f&);
 
