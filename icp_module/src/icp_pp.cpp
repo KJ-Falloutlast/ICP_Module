@@ -250,11 +250,13 @@ run(pcl::PointCloud<pcl::PointXYZI>::Ptr src, pcl::PointCloud<pcl::PointXYZI>::P
 }
 
 void initialzeOutputFile(std::vector<TumTrajectoryPoint>& finalTrajectory,
-                        std::vector<TumTrajectoryPoint> slamTrajectory)
+                        const std::vector<TumTrajectoryPoint> slamTrajectory,
+                        const std::vector<TumTrajectoryPoint> gtTrajectory)
 {
     for (int i = 0; i < slamTrajectory.size(); i++)
     {
-        finalTrajectory[i].timestamp = slamTrajectory[i].timestamp;
+        finalTrajectory[i].timestamp = gtTrajectory[i].timestamp;//和groudTruth轨迹的时间戳对齐，解决evo_ape时间戳不对齐对的问题        
+        // finalTrajectory[i].timestamp = slamTrajectory[i].timestamp;
         finalTrajectory[i].rotation = slamTrajectory[i].rotation;//用原来的旋转初始化
     }
 }
@@ -285,7 +287,7 @@ int main()
     cloud_target->resize(slamTrajectory.size());  
     cloud_target_transform->resize(slamTrajectory.size());  
     Final->resize(slamTrajectory.size());  
-    initialzeOutputFile(finalTrajectory, slamTrajectory);//把slamTraj中的非position部分加入到finalTraj中
+    initialzeOutputFile(finalTrajectory, slamTrajectory, gtTrajectory);//把slamTraj中的非position部分加入到finalTraj中
     
     //source
     for (int i = 0; i < slamTrajectory.size(); i++)
@@ -324,7 +326,7 @@ int main()
     pcl::transformPointCloud(*cloud_source, *cloud_target_transform, transformation);//表示从cloud_source到cloud_target_transform的变换T
     // std::cout << "2: " << std::endl;
 
-    // 遍历转换后点云中的每个点 s
+    // 遍历转换后点云中的每个点 s,并将转换后点的position和rotation进行更新
     for (size_t i = 0; i < cloud_target_transform->size(); ++i) {  
         // 获取当前点的坐标  
         const pcl::PointXYZI& point = cloud_target_transform->points[i];  
