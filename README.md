@@ -7,10 +7,10 @@ cd build
 cmake ..
 make
 ./[target algorithm]
-目录（Content）
+# 目录（Content）
 CMakeLists.txt 目录CMake配置文件
 icp.cpp 主文件
-详解（Details）
+# 详解（Details）
 在icp_pp.cpp文件中分别有四个函数：
 
 PointToPlane 对应点到面形式ICP实现
