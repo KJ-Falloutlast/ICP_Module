@@ -1,0 +1,10 @@
+%YAML 1.0
+---
+slamTrajectoryFile: "/home/kim-james/ROS_Space/ada_lio_ws/src/ada_lio-main/src/experiment/divide_frame/tuhh07/odom_tuhh07_no_frame.txt"
+gtTrajectoryFile: "/home/kim-james/ROS_Space/ada_lio_ws/src/ada_lio-main/src/experiment/divide_frame/tuhh07/pose_inW.txt"
+outputTrajectoryFile: "/home/kim-james/ROS_Space/ada_lio_ws/src/ada_lio-main/src/experiment/divide_frame/tuhh07/odom_tuhh07_no_frame0.txt"
+# roll, pitch, yam, x, y, z
+# init_params: [0, 0, 3.14, 50, 0, 0] #初始值搞正确，相差pi
+init_params: [0, 0, 0, 0, 0, 0] 
+icp_pattern: "PointToPlane" #icpPlaneToPlane icpPointToPlane PointToPlane PointToPoint
+#pointToPlane最好用，无需初值直接完成转换
