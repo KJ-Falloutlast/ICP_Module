@@ -14,8 +14,12 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/registration/gicp.h>
-#include <pcl/registration/icp.h>
+#include <pcl/registration/icp.h> //icp
 #include <pcl/registration/transformation_estimation_point_to_plane.h>
+#include <pcl/registration/ndt.h>  
+#include <pcl/features/normal_3d.h>  //ndt
+#include <pcl/point_types.h>  
+#include <pcl/features/normal_3d.h>  
 #include <pcl/visualization/pcl_visualizer.h>
 #include <yaml-cpp/yaml.h>
 #include <Eigen/src/Core/Matrix.h>
@@ -27,7 +31,7 @@
  * @date \2024.3.30
  * @github  https://github.com/KJ-Falloutlast/ICP_Module.git
  */
-using ICPFunPtr = Eigen::Matrix4f (*)(pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr, Eigen::Matrix4f&);
+using ICPFunPtr = Eigen::Matrix4f (*)(pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr, Eigen::Matrix4f&);//函数指针
 
 struct TumTrajectoryPoint 
 {  
@@ -35,6 +39,7 @@ struct TumTrajectoryPoint
     Eigen::Vector3d position;  
     Eigen::Quaternionf rotation;  
 };  
+
 
 //  读取TUM格式的轨迹文件  
 std::vector<TumTrajectoryPoint> readTumTrajectory(const std::string& filename) {  
@@ -150,6 +155,8 @@ Eigen::Matrix4f icpPlaneToPlane(pcl::PointCloud<pcl::PointXYZI>::Ptr src, pcl::P
   return icp.getFinalTransformation();
 }
 
+
+
 void addNormal(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud,
                pcl::PointCloud<pcl::PointXYZINormal>::Ptr cloud_with_normals)
 {
@@ -218,6 +225,52 @@ Eigen::Matrix4f PointToPoint(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_source,
     return icp.getFinalTransformation();
 }
 
+//NDT
+Eigen::Matrix4f NDT(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_source,  
+                               pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_target,  
+                               Eigen::Matrix4f& initial_guess)  
+{  
+    // 将输入点云转换为带法线的点云  
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source_normals(new pcl::PointCloud<pcl::PointNormal>);  
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target_normals(new pcl::PointCloud<pcl::PointNormal>);  
+    pcl::copyPointCloud(*cloud_source, *cloud_source_normals);  
+    pcl::copyPointCloud(*cloud_target, *cloud_target_normals);  
+  
+    // 计算法线  
+    pcl::NormalEstimation<pcl::PointXYZI, pcl::PointNormal> ne;  
+    ne.setSearchMethod(pcl::search::KdTree<pcl::PointXYZI>::Ptr(new pcl::search::KdTree<pcl::PointXYZI>()));  
+    ne.setRadiusSearch(0.03); // 设置搜索半径  
+    ne.setInputCloud(cloud_source);  
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source_normals_computed(new pcl::PointCloud<pcl::PointNormal>);  
+    ne.compute(*cloud_source_normals_computed);  
+    *cloud_source_normals = *cloud_source_normals_computed;  
+  
+    ne.setInputCloud(cloud_target);  
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target_normals_computed(new pcl::PointCloud<pcl::PointNormal>);  
+    ne.compute(*cloud_target_normals_computed);  
+    *cloud_target_normals = *cloud_target_normals_computed;  
+  
+    // 初始化NDT对象  
+    pcl::NormalDistributionsTransform<pcl::PointNormal, pcl::PointNormal> ndt;  
+    ndt.setInputSource(cloud_source_normals);  
+    ndt.setInputTarget(cloud_target_normals);  
+    ndt.setMaxCorrespondenceDistance(150); // 设置最大对应距离  
+    ndt.setTransformationEpsilon(1e-3); // 设置收敛阈值  
+    ndt.setStepSize(0.1); // 设置步长  
+    ndt.setMaximumIterations(100); // 设置线程数  
+    ndt.setEuclideanFitnessEpsilon(0.01);
+
+    // 执行配准  
+    pcl::PointCloud<pcl::PointNormal> aligned_cloud;  
+    ndt.align(aligned_cloud);  
+
+    // 输出配准结果  
+    std::cout << "score: " << ndt.getFitnessScore() << std::endl;  
+    std::cout << "has converged:" << ndt.hasConverged() << std::endl;  
+  
+    return ndt.getFinalTransformation();
+}
+
 Eigen::Matrix4f genTransformation(Eigen::Vector3f& r, Eigen::Vector3f& t)
 {
   Eigen::AngleAxisf init_rotation_x(r.x(), Eigen::Vector3f::UnitX());
@@ -253,7 +306,9 @@ void initialzeOutputFile(std::vector<TumTrajectoryPoint>& finalTrajectory,
                         const std::vector<TumTrajectoryPoint> slamTrajectory,
                         const std::vector<TumTrajectoryPoint> gtTrajectory)
 {
-    for (int i = 0; i < slamTrajectory.size(); i++)
+    //去小的size给finalTrajectory，以防读取gtTrajectory和slamTrajectory轨迹时候容器越界
+    int size = std::min(gtTrajectory.size(), slamTrajectory.size());
+    for (int i = 0; i < size; i++)
     {
         finalTrajectory[i].timestamp = gtTrajectory[i].timestamp;//和groudTruth轨迹的时间戳对齐，解决evo_ape时间戳不对齐对的问题        
         // finalTrajectory[i].timestamp = slamTrajectory[i].timestamp;
@@ -280,7 +335,8 @@ int main()
     std::vector<TumTrajectoryPoint> slamTrajectory = readTumTrajectory(slamTrajectoryFile);  
     std::vector<TumTrajectoryPoint> gtTrajectory = readTumTrajectory(gtTrajectoryFile);  
     std::vector<TumTrajectoryPoint> finalTrajectory;
-    finalTrajectory.resize(slamTrajectory.size());
+    int max_size = std::max(gtTrajectory.size(), slamTrajectory.size());//取大的轨迹来resize finalTrajectory
+    finalTrajectory.resize(max_size);
     
     //需要初始化slamTrajectory，否则会coredumped(指针泄露)
     cloud_source->resize(slamTrajectory.size());  
@@ -305,19 +361,13 @@ int main()
         cloud_target->points[i].z = gtTrajectory[i].position[2];
     }
 
-    // 确保两个轨迹点的数量是一致的，或者至少是可配对的 (目前暂时不要一致)
-    // if (slamTrajectory.size() != gtTrajectory.size()) {  
-    //     std::cerr << "The number of points in SLAM and ground truth trajectories does not match!" << std::endl;  
-    //     return -1;  
-    // }  
-
-
     Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
 
     std::map<std::string, ICPFunPtr> icp_map{{"icpPlaneToPlane", &icpPlaneToPlane},
                                             {"icpPointToPlane", &icpPointToPlane},
                                             {"PointToPlane", &PointToPlane},
-                                            {"PointToPoint", &PointToPoint}};
+                                            {"PointToPoint", &PointToPoint},
+                                            {"NDT", &NDT}};
 
     // clang-format on: can't use Matrix4d, because the Matrix4f is strictly used in the pcl lib
     Eigen::Matrix4f transformation = run(cloud_source, cloud_target, init_params, icp_map[icp_pattern]);
@@ -356,7 +406,15 @@ int main()
     p.addPointCloud(cloud_target_transform, tgt_after_transform_h, "target_after_transform");
     p.addPointCloud(cloud_target, tgt_h, "target");
     p.addPointCloud(cloud_source, src_h, "source");
+
+
+    // 可视化坐标轴
+    p.addCoordinateSystem(10); // 添加坐标系，大小为1.0  
+    p.initCameraParameters();  
+
     p.setSize(1200, 900);
     p.spin();
     return 0;
 }
+
+
