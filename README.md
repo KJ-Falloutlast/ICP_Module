@@ -37,4 +37,4 @@ note: 白色是原轨迹，蓝色是真值轨迹，绿色是ICP对齐后的轨�
 
 **icp对齐后：**
 
-![img](https://ji83440guul.feishu.cn/space/api/box/stream/download/asynccode/?code=YTQ1MjQ2Nzk0OWQ4OWQ0OWNlM2Q3Y2IzMGE1ZTNkMjFfdldhSnlrQWRQalRxdHVZeHdQNlE5SFZVOUJ1RjFTOUFfVG9rZW46SGU1WWJKTFh3b1VnanJ4dTY2bGNSVUFRbmQ5XzE3MTE5ODA0MzU6MTcxMTk4NDAzNV9WNA)
+![image-20240403141533903](https://obsidians-pics.oss-cn-beijing.aliyuncs.com/image-20240403141533903.png)
